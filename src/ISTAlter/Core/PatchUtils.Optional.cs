@@ -37,7 +37,7 @@ public static partial class PatchUtils
             RemoveIsProgrammingEnabledCheck
         );
 
-        void RemoveIsProgrammingEnabledCheck(MethodDef method)
+        static void RemoveIsProgrammingEnabledCheck(MethodDef method)
         {
             if (method.Body.Instructions.FirstOrDefault(inst =>
                     inst.OpCode == OpCodes.Call && inst.Operand is IMethod methodOperand &&
@@ -76,7 +76,7 @@ public static partial class PatchUtils
             RemoveRequirementsCheck
         );
 
-        void RemoveRequirementsCheck(MethodDef method)
+        static void RemoveRequirementsCheck(MethodDef method)
         {
             var dictionaryCtorRef = method.FindOperand<MemberRef>(
                 OpCodes.Newobj,
@@ -104,7 +104,7 @@ public static partial class PatchUtils
             RemoveHypervisorFlag
         );
 
-        void RemoveHypervisorFlag(MethodDef method)
+        static void RemoveHypervisorFlag(MethodDef method)
         {
             var instructions = method.Body.Instructions;
             instructions.RemoveAt(instructions.Count - 1);
@@ -267,7 +267,7 @@ public static partial class PatchUtils
             DnlibUtils.ReturnFalseMethod
         );
 
-        void ReturnNullableFalse(MethodDef method)
+        static void ReturnNullableFalse(MethodDef method)
         {
             var ctor = method.FindOperand<MemberRef>(OpCodes.Newobj, "System.Void System.Nullable`1<System.Boolean>::.ctor(System.Boolean)");
             if (ctor == null)
@@ -289,7 +289,7 @@ public static partial class PatchUtils
     [LibraryName("RheingoldPresentationFramework.dll")]
     [FromVersion("4.44")]
     [UntilVersion("4.52")]
-    public static int PatchUserEnvironmentProvider(ModuleDefMD module)
+    public static int PatchUserEnvironmentProviderFrom444(ModuleDefMD module)
     {
         return module.PatchFunction(
             "\u0042\u004d\u0057.Rheingold.PresentationFramework.Authentication.UserEnvironmentProvider",
@@ -307,7 +307,8 @@ public static partial class PatchUtils
     [UserAuthPatch]
     [LibraryName("\u0042\u004d\u0057.ISPI.TRIC.ISTA.LOGIN.dll")]
     [FromVersion("4.52")]
-    public static int PatchLoginUserEnvironmentProvider(ModuleDefMD module)
+    [UntilVersion("4.55")]
+    public static int PatchUserEnvironmentProviderFrom452(ModuleDefMD module)
     {
         return module.PatchFunction(
             "\u0042\u004d\u0057.ISPI.TRIC.ISTA.LOGIN.DataProviders.UserEnvironmentProvider",
@@ -318,6 +319,24 @@ public static partial class PatchUtils
             "\u0042\u004d\u0057.ISPI.TRIC.ISTA.LOGIN.DataProviders.UserEnvironmentProvider",
             "GetCurrentNetworkType",
             "()\u0042\u004d\u0057.ISPI.TRIC.ISTA.LoginRepository.Entities.NetworkType",
+            DnlibUtils.ReturnUInt32Method(1) // LAN
+        );
+    }
+
+    [UserAuthPatch]
+    [LibraryName("\u0042\u004d\u0057.ISPI.TRIC.ISTA.LOGIN.dll")]
+    [FromVersion("4.55")]
+    public static int PatchUserEnvironmentProviderFrom455(ModuleDefMD module)
+    {
+        return module.PatchFunction(
+            "\u0042\u004d\u0057.ISPI.TRIC.ISTA.LOGIN.DataProviders.UserEnvironmentProvider",
+            "GetCurrentUserEnvironment",
+            "()\u0042\u004d\u0057.ISPI.TRIC.ISTA.Contracts.Enums.UserLogin.UserEnvironment",
+            DnlibUtils.ReturnUInt32Method(2) // PROD
+        ) + module.PatchFunction(
+            "\u0042\u004d\u0057.ISPI.TRIC.ISTA.LOGIN.DataProviders.UserEnvironmentProvider",
+            "GetCurrentNetworkType",
+            "()\u0042\u004d\u0057.ISPI.TRIC.ISTA.Contracts.Enums.UserLogin.NetworkType",
             DnlibUtils.ReturnUInt32Method(1) // LAN
         );
     }
@@ -373,7 +392,7 @@ public static partial class PatchUtils
             SetPeriodicalCheck
         );
 
-        void SetPeriodicalCheck(MethodDef method)
+        static void SetPeriodicalCheck(MethodDef method)
         {
             var indexOfRequestSwtAction = method.FindIndexOfInstruction(OpCodes.Callvirt, "\u0042\u004d\u0057.Rheingold.Psdz.Model.Swt.IPsdzSwtAction \u0042\u004d\u0057.Rheingold.Psdz.IProgrammingService::RequestSwtAction(\u0042\u004d\u0057.Rheingold.Psdz.Model.IPsdzConnection,System.Boolean)");
             if (indexOfRequestSwtAction == -1)
@@ -404,7 +423,7 @@ public static partial class PatchUtils
             SetPeriodicalCheck
         );
 
-        void SetPeriodicalCheck(MethodDef method)
+        static void SetPeriodicalCheck(MethodDef method)
         {
             var instructions = method.Body.Instructions;
             var requestSwtAction = method.FindInstruction(OpCodes.Callvirt, "\u0042\u004d\u0057.Rheingold.Psdz.Model.Swt.IPsdzSwtAction \u0042\u004d\u0057.Rheingold.Psdz.IProgrammingService::RequestSwtAction(\u0042\u004d\u0057.Rheingold.Psdz.Model.IPsdzConnection,System.Boolean)");
@@ -453,7 +472,7 @@ public static partial class PatchUtils
             ReplaceCondition
         );
 
-        void ReplaceCondition(MethodDef method)
+        static void ReplaceCondition(MethodDef method)
         {
             var indexOfCallIsILeanActive = method.FindIndexOfInstruction(OpCodes.Call, "System.Boolean \u0042\u004d\u0057.Rheingold.CoreFramework.ConfigSettings::get_IsILeanActive()");
             if (indexOfCallIsILeanActive == -1)
@@ -488,9 +507,13 @@ public static partial class PatchUtils
             "\u0042\u004d\u0057.Rheingold.Diagnostics.VehicleIdent",
             "doVehicleShortTest",
             "(\u0042\u004d\u0057.Rheingold.CoreFramework.IProgressMonitor)System.Boolean",
+            FixCondition) + module.PatchFunction(
+            "\u0042\u004d\u0057.Rheingold.Diagnostics.VehicleIdent",
+            "DoVehicleShortTest",
+            "(\u0042\u004d\u0057.Rheingold.CoreFramework.IProgressMonitor)System.Boolean",
             FixCondition);
 
-        void FixCondition(MethodDef method)
+        static void FixCondition(MethodDef method)
         {
             var instructions = method.Body.Instructions;
 
@@ -545,7 +568,6 @@ public static partial class PatchUtils
 
     [ForceICOMNextPatch]
     [LibraryName("RheingoldxVM.dll")]
-    [UntilVersion("4.55")]
     public static int PatchSLP(ModuleDefMD module)
     {
         return module.PatchFunction(
@@ -558,7 +580,7 @@ public static partial class PatchUtils
             "(System.Collections.Generic.Dictionary`2<System.String,System.String>)System.Boolean",
             DnlibUtils.ReturnFalseMethod);
 
-        void ReplaceDeviceType(MethodDef method)
+        static void ReplaceDeviceType(MethodDef method)
         {
             const string targetOperand = "System.String System.Collections.Generic.Dictionary`2<System.String,System.String>::get_Item(System.String)";
             var instructions = method.FindInstructions(OpCodes.Ldstr, "DevTypeExt");
@@ -577,6 +599,65 @@ public static partial class PatchUtils
                     break;
                 }
             }
+        }
+    }
+
+    [MotorbikeClamp15Patch]
+    [LibraryName("RheingoldDiagnostics.dll")]
+    public static int PatchMotorbikeClamp15(ModuleDefMD module)
+    {
+        return module.PatchFunction(
+            "\u0042\u004d\u0057.Rheingold.Diagnostics.VehicleIdent",
+            "ClearAndReadErrorInfoMemory",
+            "(\u0042\u004d\u0057.Rheingold.CoreFramework.Contracts.IJobServices)System.Void",
+            PatchClamp15Check
+        );
+
+        static void PatchClamp15Check(MethodDef method)
+        {
+            var instructions = method.Body.Instructions;
+
+            // Transform the logic from:
+            // Original: if (flag && (!clamp.HasValue || clamp < 0.1)) { RegisterMessage(); return; }
+            // To: if (flag && (clamp.HasValue && clamp < 0.1)) { RegisterMessage(); return; }
+
+            // First find the HasValue call
+            var hasValueCall = method.FindInstruction(OpCodes.Call, "System.Boolean System.Nullable`1<System.Double>::get_HasValue()");
+            if (hasValueCall == null)
+            {
+                Log.Warning("Required instructions not found, can not patch {Method}", method.FullName);
+                return;
+            }
+
+            var hasValueIndex = instructions.IndexOf(hasValueCall);
+            if (hasValueIndex == -1 || hasValueIndex >= instructions.Count - 1)
+            {
+                Log.Warning("Required instructions not found, can not patch {Method}", method.FullName);
+                return;
+            }
+
+            // The next instruction after HasValue call should be brfalse.s
+            var brfalseInstruction = instructions[hasValueIndex + 1];
+            if (brfalseInstruction.OpCode != OpCodes.Brfalse_S)
+            {
+                Log.Warning("Required instructions not found, can not patch {Method}", method.FullName);
+                return;
+            }
+
+            // Find the instruction that skips the RegisterMessage block (IL_012d in the original)
+            // This should be the target of the second brfalse.s instruction after the value comparison
+            var valueComparisonBrfalse = instructions.Skip(hasValueIndex + 2)
+                .FirstOrDefault(inst => inst.OpCode == OpCodes.Brfalse_S);
+
+            if (valueComparisonBrfalse == null)
+            {
+                Log.Warning("Required instructions not found, can not patch {Method}", method.FullName);
+                return;
+            }
+
+            // Change the first brfalse target to point to the same target as the value comparison brfalse
+            // This transforms (!clamp.HasValue || clamp < 0.1) to (clamp.HasValue && clamp < 0.1)
+            brfalseInstruction.Operand = valueComparisonBrfalse.Operand;
         }
     }
 }
